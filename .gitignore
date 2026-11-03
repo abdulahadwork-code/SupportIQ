@@ -1,0 +1,25 @@
+# secrets
+.env
+*.pem
+*.key
+
+# python / tooling
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.vscode/
+.idea/
+.DS_Store
+.ipynub_checkpoints/
+
+# local db
+*.db
+*.sqlite3
+
+# reproducible artifacts (regenerate via ml/ scripts)
+ml/data/
+ml/models/
