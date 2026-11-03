@@ -14,15 +14,11 @@ from . import models, schemas, database
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 if not GROQ_API_KEY or not GROQ_API_KEY.startswith("gsk_"):
-    print(" GROQ_API_KEY is invalid or missing in .env")
+    print(" APIKEY is invalid or missing in .env")
 else:
-    print(f"✅ GROQ_API_KEY loaded successfully!")
-
-# Initialize Groq Client (Ultra-fast, free LLM inference)
+    print(f"APIKEY loaded ")
 groq_client = Groq(api_key=GROQ_API_KEY)
 LLM_MODEL = "openai/gpt-oss-20b" 
-
-# Global variables for the ML model
 classifier = None
 label_encoder = None
 MODEL_VERSION = "distilbert-v1.0"
@@ -31,38 +27,27 @@ MODEL_VERSION = "distilbert-v1.0"
 async def lifespan(app: FastAPI):
     """Load ML models and initialize database on startup."""
     global classifier, label_encoder
-    
-    print("🔄 Loading SupportIQ ML models...")
-    
-    # 1. Load Label Encoder
+    # 1. Loading Label Encoder
     encoder_path = "ml/models/label_encoder.pkl"
     if os.path.exists(encoder_path):
         label_encoder = joblib.load(encoder_path)
     else:
-        print("⚠️ label_encoder.pkl not found. Run ml/train_distilbert.py first.")
-
-    # 2. Load DistilBERT
+        print("label_encoder.pkl not found.")
+    # 2. Loading here DistilBERT
     model_path = "ml/models/distilbert_ticket_classifier"
     if os.path.exists(model_path):
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForSequenceClassification.from_pretrained(model_path)
-        # Use GPU if available, else CPU (-1)
         device = 0 if torch.cuda.is_available() else -1
         classifier = pipeline("text-classification", model=model, tokenizer=tokenizer, device=device)
-        print("✅ DistilBERT model loaded successfully!")
+        print("DistilBERT model loaded")
     else:
-        print("⚠️ DistilBERT model not found. Run ml/train_distilbert.py first.")
-
-    # 3. Create DB Tables
+        print("DistilBERT model not found")
+    # 3. Creating DB Tables
     models.Base.metadata.create_all(bind=database.engine)
-    
-    yield  # App runs here
-    
-    print("🛑 Shutting down SupportIQ API...")
-
+    yield  
 app = FastAPI(title="SupportIQ API", version="1.0.0", lifespan=lifespan)
 
-# --- Helper Functions for Heuristics ---
 def get_sentiment(text: str) -> str:
     text_lower = text.lower()
     if any(w in text_lower for w in ["not", "never", "hate", "terrible", "issue", "problem", "angry", "furious"]):
@@ -78,9 +63,8 @@ def get_priority(text: str, category: str) -> str:
     return "Medium"
 
 def get_suggested_response(text: str, category: str) -> str:
-    """Uses Groq (gpt-oss-20b) to generate a custom reply, with empty-content + API guards."""
     if not GROQ_API_KEY:
-        return "System Error: GROQ_API_KEY is missing."
+        return "GROQAPIKEY is missing."
 
     prompt = f"""You are a professional customer support agent for an e-commerce company.
 The customer's issue is classified as: {category}.
@@ -100,13 +84,11 @@ Write a polite, concise, helpful response in maximum 2 sentences. Do not include
             model=LLM_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
-            max_tokens=1024,  # reasoning models need headroom beyond the visible answer
+            max_tokens=1024,  
         )
         msg = response.choices[0].message
         content = (getattr(msg, "content", None) or "").strip()
-
         if not content:
-            # Reasoning-only response: thinking consumed the budget, answer is blank.
             print("⚠️ LLM returned empty content (reasoning-only). Falling back to template.")
             return templates.get(category, "Thank you for contacting support. We are looking into your request.")
 
