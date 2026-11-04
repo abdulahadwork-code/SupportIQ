@@ -22,11 +22,10 @@ def override_get_db():
         db.close()
 
 app.dependency_overrides[database.get_db] = override_get_db
+
 models.Base.metadata.create_all(bind=TEST_ENGINE)
 
 client = TestClient(app)  
-
-
 def test_root_endpoint():
     """Health check works."""
     response = client.get("/")
@@ -34,14 +33,17 @@ def test_root_endpoint():
     assert response.json() == {"message": "SupportIQ API is running!", "status": "healthy"}
 
 
-@patch('backend.app.main.GROQ_API_KEY', 'gsk_test_dummy_key')   
-@patch('backend.app.main.groq_client')                          
-@patch('backend.app.main.classifier')                           
-@patch('backend.app.main.label_encoder')                        
-def test_predict_endpoint(mock_label_encoder, mock_classifier, mock_groq, mock_key):
-    """Predict works with ML + LLM fully mocked: fast, no model files, no API key, no network."""
+@patch('backend.app.main.GROQ_API_KEY', 'gsk_test_dummy_key')  
+@patch('backend.app.main.groq_client')                        
+@patch('backend.app.main.classifier')                         
+@patch('backend.app.main.label_encoder')                      
+def test_predict_endpoint(mock_label_encoder, mock_classifier, mock_groq):
+    """Predict works with ML + LLM fully mocked: fast, offline, no model files, no real key."""
+
+    
     mock_classifier.return_value = [{"label": "LABEL_1", "score": 0.99}]
     mock_label_encoder.classes_ = ["Billing", "Delivery", "Refund", "Account Access", "Technical Issue"]
+
     mock_message = MagicMock()
     mock_message.content = "We've escalated your delivery and will send a tracking update shortly."
     mock_choice = MagicMock()
@@ -56,9 +58,9 @@ def test_predict_endpoint(mock_label_encoder, mock_classifier, mock_groq, mock_k
     }
     response = client.post("/predict", json=payload)
 
-    assert response.status_code == 200          
+    assert response.status_code == 200
     data = response.json()
     assert data["category"] == "Delivery"
-    assert data["priority"] == "High"                                     
-    assert "escalated your delivery" in data["suggested_response"]        
+    assert data["priority"] == "High"
+    assert "escalated your delivery" in data["suggested_response"]
     assert data["model_version"] == "distilbert-v1.0"
