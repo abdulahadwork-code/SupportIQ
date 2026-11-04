@@ -52,8 +52,7 @@ def train_distilbert():
         "distilbert-base-uncased", 
         num_labels=num_classes
     )
-        # 6. Training Arguments
-        # 6. Training Arguments
+
     training_args = TrainingArguments(
         output_dir="ml/models/distilbert_checkpoints",
         learning_rate=2e-5,
@@ -61,20 +60,20 @@ def train_distilbert():
         per_device_eval_batch_size=32,
         num_train_epochs=3,
         weight_decay=0.01,
-        eval_strategy="epoch",          # Updated from evaluation_strategy
+        eval_strategy="epoch",          
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="macro_f1",
         logging_steps=50,
-        report_to="none"                # Removed logging_dir
+        report_to="none"                
     )
-        # 7. Trainer
+        
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=tokenized_train,
         eval_dataset=tokenized_test,
-        processing_class=tokenizer,      # <-- CHANGED HERE (was tokenizer=tokenizer)
+        processing_class=tokenizer,      
         data_collator=data_collator,
         compute_metrics=compute_metrics,
     )
